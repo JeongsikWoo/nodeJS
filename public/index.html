@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<!-- Chrome에 내장된 공룡 게임을 만들어 봤습니다. -->
+<!-- Coding by JeongsikWoo -->
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- 캔버스 CSS -->
+    <style>
+        canvas {
+            border: 1px solid #d3d3d3;
+            background-color: #f1f1f1;
+        }
+    </style>
+</head>
+
+<!-- body -->
+
+<body onload="gameReady();">
+    <script>
+        var playerName = '';
+
+        var myDino;
+        var myObstacle = [];
+        var myBird = [];
+
+        // UI
+        var score = 0;
+        var bestScore = 0;
+        var gameSpeed = 3;
+
+        var gameLevel = 1;
+        var groundScaleY = 30;
+
+        // Control
+        var canControl = true;
+        var onJumping = false;
+
+        document.addEventListener("keydown", keyDownHandler, false);
+        document.addEventListener("keyup", keyUpHandler, false);
+
+        
+        function keyDownHandler(e) {
+            if(e.keyCode == 32 && canControl) {
+                onJumping = true;
+                canControl = false;
+                movedown(false);
+                myDino.velocityY = -6.0;
+                
+            }
+            else if(e.keyCode == 40 && canControl) {
+                canControl = false;
+                movedown(true);
+            }
+        }
+        function keyUpHandler(e) {
+            if(e.keyCode == 32 && !canControl) {
+                canControl = true;
+                onJumping = false;
+            }
+            else if(e.keyCode == 40 && !canControl) {
+                canControl = true;
+                movedown(false);
+            }
+        }
+
+        function gameReady() {
+            //playerName = prompt("INSERT YOUR NAME");
+            //alert("GET SET GO");
+            startGame();
+        }
+
+        function startGame() {
+            score = 0;
+
+            myCanvas.start();
+            myDino = new component(30, 60, "black", 30, myCanvas.canvas.height - 90, "dino");
+            myGround = new component(myCanvas.canvas.width, groundScaleY, "gray", 0, myCanvas.canvas.height - groundScaleY);
+        }
+
+        var myCanvas = {
+
+            canvas: document.createElement("canvas"),
+            start: function () {
+                this.canvas.width = 480;
+                this.canvas.height = 270;
+                this.context = this.canvas.getContext("2d");
+                document.body.insertBefore(this.canvas, document.body.childNodes[0]);
+                this.frameNo = 0;
+                this.interval = setInterval(updateCanvas, 20);
+            },
+            clear: function () {
+                this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
+            },
+            stop: function () {
+                clearInterval(this.interval);
+                bestScore = (bestScore > score) ? bestScore : score;
+                gameOverUI();
+            }
+        }
+
+        function everyinterval(n) {
+            if ((myCanvas.frameNo / n) % 1 == 0) {
+                return true;
+            }
+            return false;
+        }
+
+        function component(width, height, color, x, y, type) {
+            this.type = type;
+            this.width = width;
+            this.height = height;
+            this.gravity = 0.5;
+            this.velocityY = 0;
+            this.x = x;
+            this.y = y;
+            this.update = function () {
+                ctx = myCanvas.context;
+                if (this.type == "text") {
+                    ctx.font = this.width + " " + this.height;
+                    ctx.fillStyle = color;
+                    ctx.fillText(this.text, this.x, this.y);
+                } else{
+                    ctx.fillStyle = color;
+                    ctx.fillRect(this.x, this.y, this.width, this.height);
+                }
+            }
+            this.newPos = function () {
+
+                if(this.type == "dino" ){
+                    this.velocityY += this.gravity;
+                    this.y += this.velocityY;
+                    this.hitBottom();
+                }
+            }
+
+            this.hitBottom = function(){
+                var bottom = myCanvas.canvas.height - this.height- groundScaleY;
+                if(this.y > bottom){
+                    this.y = bottom;
+                }
+            }
+
+            this.crashWith = function (otherobj) {
+                var myleft = this.x;
+                var myright = this.x + (this.width);
+                var mytop = this.y;
+                var mybottom = this.y + (this.height);
+                var otherleft = otherobj.x;
+                var otherright = otherobj.x + (otherobj.width);
+                var othertop = otherobj.y;
+                var otherbottom = otherobj.y + (otherobj.height);
+                var crash = true;
+                if ((mybottom < othertop) ||
+                    (mytop > otherbottom) ||
+                    (myright < otherleft) ||
+                    (myleft > otherright)) {
+                    crash = false;
+                }
+                return crash;
+            }
+        }
+
+        function bestScoreUI() {
+            ctx.font = "16px Arial";
+            ctx.fillStyle = "#000000";
+            ctx.fillText("최고점수 : " + bestScore, 15, 20);
+        }
+
+        function scoreUI() {
+            ctx.font = "16px Arial";
+            ctx.fillStyle = "#000000";
+            ctx.fillText("점수: " + score, myCanvas.canvas.width - 80, 20);
+        }
+
+        function gameOverUI() {
+            ctx.font = "32px Arial";
+            ctx.fillStyle = "#000000";
+            ctx.fillText("Game Over !", myCanvas.canvas.width / 3, myCanvas.canvas.height / 2);
+        }
+
+        function updateCanvas() {
+            var x, y;
+            for (i = 0; i < myObstacle.length; i += 1) {
+                if (myDino.crashWith(myObstacle[i])) {
+                    myCanvas.stop();
+                    return;
+                }
+            }
+            for (i = 0; i < myBird.length; i += 1) {
+                if (myDino.crashWith(myBird[i])) {
+                    myCanvas.stop();
+                    return;
+                }
+            }
+            myCanvas.clear();
+            myCanvas.frameNo += 1;
+
+            // Update Obstacle
+            if (myCanvas.frameNo == 1 || everyinterval(150)) {
+                x = myCanvas.canvas.width;
+                minHeight = 30;
+                maxHeight = 60;
+                height = Math.floor(Math.random() * (maxHeight - minHeight + 1) + minHeight);
+                myObstacle.push(new component(15, height, "black", x, myCanvas.canvas.height-groundScaleY-height));
+            }
+
+            for (i = 0; i < myObstacle.length; i += 1) {
+                myObstacle[i].x += -1.2 * gameSpeed;
+                myObstacle[i].update();
+            }
+
+            // Update Bird
+            if (everyinterval(100)) {
+                x = myCanvas.canvas.width;
+                //minHeight = 30;
+                //maxHeight = 80;
+                //height = Math.floor(Math.random() * (maxHeight - minHeight + 1) + minHeight);
+                myBird.push(new component(20, 20, "red", x, 150));
+            }
+
+            for (i = 0; i < myBird.length; i += 1) {
+                myBird[i].x += -1 * gameSpeed;
+                myBird[i].update();
+            }
+
+            score = myCanvas.frameNo;
+            myGround.newPos();
+            myGround.update();
+            myDino.newPos();
+            myDino.update();
+            if(onJumping){
+                jump();
+            }
+            scoreUI();
+            bestScoreUI();
+            level(score);
+        }
+
+        function level(n){
+            if(n < 1000){
+                gameLevel = 1;
+                gameSpeed = 3;
+            }
+            else{
+                gameSpeed = n/300;
+            }
+            /*
+            if(n < 1000){
+                gameLevel = 1;
+                gameSpeed = 3;
+            }
+            else if(n < 2000){
+                gameLevel = 2;
+                gameSpeed = 4;
+            }
+            else if(n < 3000){
+                gameLevel = 3;
+                gameSpeed = 5;
+            }
+            else if(n < 4000){
+                gameLevel = 4;
+                gameSpeed = 6;
+            }
+            else{
+                gameLevel = 5;
+                gameSpeed = 10;
+            }
+            */
+        }
+
+        function jump() {
+            //console.log("jumping : " + myDino.velocityY);
+            if(myDino.velocityY < -14.0){
+                myDino.velocityY = -14.0;
+            }
+            else{
+                myDino.velocityY -= 0.3;
+            }
+        }
+
+        function movedown(tmp) {
+            if(tmp){
+                myDino.width = 60;
+                myDino.height = 30;
+                myDino.y = myCanvas.canvas.height - 60;
+            }
+            else{
+                myDino.width = 30;
+                myDino.height = 60;
+                myDino.y = myCanvas.canvas.height - 90;
+            }
+        }
+    </script>
+</body>
+
+</html>
